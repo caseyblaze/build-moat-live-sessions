@@ -37,8 +37,10 @@ Your prototype is a real MCP server. Test it with the MCP inspector — no Claud
 
 ### 1. Start the server (sanity check)
 
+The `app` package lives in `scaffold/`, so run the server from there:
+
 ```bash
-python -m app.mcp_server
+cd scaffold && python -m app.mcp_server
 ```
 
 The process should hang waiting on stdin (it's a stdio MCP server — that's correct). Ctrl+C to stop. If you see an `ImportError` or other crash, fix that first.
@@ -48,7 +50,7 @@ The process should hang waiting on stdin (it's a stdio MCP server — that's cor
 Requires Node.js (uses `npx`).
 
 ```bash
-npx @modelcontextprotocol/inspector python -m app.mcp_server
+cd scaffold && npx @modelcontextprotocol/inspector python -m app.mcp_server
 ```
 
 This opens a browser GUI (usually `http://localhost:5173`).
@@ -66,23 +68,25 @@ Steps in the GUI:
 
 Once the inspector tests pass, the server is ready. To talk to it through Claude:
 
-**Claude Desktop**: edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) and add (use absolute paths):
+Both clients accept the same config — edit the appropriate file:
+- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+- **Claude Code**: `~/.claude.json` (top-level `mcpServers` for user scope)
 
 ```json
 {
   "mcpServers": {
     "task-scheduler": {
-      "command": "/absolute/path/to/scaffold/.venv/bin/python",
-      "args": ["-m", "app.mcp_server"],
-      "cwd": "/absolute/path/to/scaffold"
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "cd /absolute/path/to/scaffold && exec /absolute/path/to/scaffold/.venv/bin/python -m app.mcp_server"
+      ]
     }
   }
 }
 ```
 
-Restart Claude Desktop fully. The 🔨 icon in the chat input should show 4 tools.
-
-**Claude Code**: edit `~/.claude.json` (top-level `mcpServers` for user scope) with the same block, or run `claude mcp add` from inside `scaffold/`.
+The `bash -c` wrapper sets the working directory inside the process — `python -m app.mcp_server` must run from `scaffold/` to find the `app` package and the relative SQLite path. Claude Desktop also honors a top-level `cwd` field as an alternative, but Claude Code ignores `cwd` for stdio servers (and `claude mcp add` / `add-json` don't persist it), so the wrapper is the most portable form. Restart the client fully after saving — the 🔨 icon should show 4 tools.
 
 Then chat:
 > "Schedule a task to review PR #123 tomorrow at 9am."
