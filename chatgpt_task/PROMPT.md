@@ -7,7 +7,7 @@ Build a job scheduler with an MCP (Model Context Protocol) interface:
 - A background watcher scans for due jobs and pushes them to a queue
 - Workers pull jobs from the queue and execute them
 - Support task creation, listing, status checking, and cancellation
-- Tool naming follows namespace + action verb pattern (e.g., `task.create`)
+- Tool naming follows namespace + action verb pattern (e.g., `task_create`)
 
 ### Architecture
 
@@ -27,7 +27,7 @@ Answer these before you start coding:
 
 3. **Time Bucket Partitioning:** Instead of `SELECT * WHERE scheduled_at <= now()`, why partition jobs by time bucket (e.g., hour)? What happens to query performance at 1M+ jobs without partitioning?
 
-4. **Tool Naming:** Why `task.create` instead of `createTask`? How does naming convention affect LLM tool selection accuracy?
+4. **Tool Naming:** Why `task_create` instead of `createTask`? How does naming convention affect LLM tool selection accuracy?
 
 5. **Registry vs If-Else:** Why use a dictionary registry to route tool calls instead of if-else chains? What happens when you need to add the 20th tool?
 
@@ -37,8 +37,10 @@ Your prototype is a real MCP server. Test it with the MCP inspector — no Claud
 
 ### 1. Start the server (sanity check)
 
+The `app` package lives in `scaffold/`, so run the server from there:
+
 ```bash
-python -m app.mcp_server
+cd scaffold && python -m app.mcp_server
 ```
 
 The process should hang waiting on stdin (it's a stdio MCP server — that's correct). Ctrl+C to stop. If you see an `ImportError` or other crash, fix that first.
@@ -48,47 +50,49 @@ The process should hang waiting on stdin (it's a stdio MCP server — that's cor
 Requires Node.js (uses `npx`).
 
 ```bash
-npx @modelcontextprotocol/inspector python -m app.mcp_server
+cd scaffold && npx @modelcontextprotocol/inspector python -m app.mcp_server
 ```
 
 This opens a browser GUI (usually `http://localhost:5173`).
 
 Steps in the GUI:
 
-1. Click **Connect** -> should show 4 tools: `task.create`, `task.list`, `task.status`, `task.cancel`
-2. **task.create** -> fill `description="Summarize tech news"`, `scheduled_at="2025-01-01T00:00:00"` (past time so watcher picks it up immediately) -> **Run Tool** -> response should include `{"job_id": 1, "status": "pending", ...}`
-3. Wait ~10 seconds, then **task.status** -> `job_id: 1` -> status should now be `"completed"`
-4. **task.create** with future time `"2099-12-31T00:00:00"` -> get `job_id: 2`
-5. **task.cancel** -> `job_id: 2` -> status `"cancelled"`
-6. **task.list** -> see all your jobs
+1. Click **Connect** -> should show 4 tools: `task_create`, `task_list`, `task_status`, `task_cancel`
+2. **task_create** -> fill `description="Summarize tech news"`, `scheduled_at="2025-01-01T00:00:00"` (past time so watcher picks it up immediately) -> **Run Tool** -> response should include `{"job_id": 1, "status": "pending", ...}`
+3. Wait ~10 seconds, then **task_status** -> `job_id: 1` -> status should now be `"completed"`
+4. **task_create** with future time `"2099-12-31T00:00:00"` -> get `job_id: 2`
+5. **task_cancel** -> `job_id: 2` -> status `"cancelled"`
+6. **task_list** -> see all your jobs
 
 ### 3. (Optional) Connect to Claude Desktop / Claude Code
 
 Once the inspector tests pass, the server is ready. To talk to it through Claude:
 
-**Claude Desktop**: edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) and add (use absolute paths):
+Both clients accept the same config — edit the appropriate file:
+- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+- **Claude Code**: `~/.claude.json` (top-level `mcpServers` for user scope)
 
 ```json
 {
   "mcpServers": {
     "task-scheduler": {
-      "command": "/absolute/path/to/scaffold/.venv/bin/python",
-      "args": ["-m", "app.mcp_server"],
-      "cwd": "/absolute/path/to/scaffold"
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "cd /absolute/path/to/scaffold && exec /absolute/path/to/scaffold/.venv/bin/python -m app.mcp_server"
+      ]
     }
   }
 }
 ```
 
-Restart Claude Desktop fully. The 🔨 icon in the chat input should show 4 tools.
-
-**Claude Code**: edit `~/.claude.json` (top-level `mcpServers` for user scope) with the same block, or run `claude mcp add` from inside `scaffold/`.
+The `bash -c` wrapper sets the working directory inside the process — `python -m app.mcp_server` must run from `scaffold/` to find the `app` package and the relative SQLite path. Claude Desktop also honors a top-level `cwd` field as an alternative, but Claude Code ignores `cwd` for stdio servers (and `claude mcp add` / `add-json` don't persist it), so the wrapper is the most portable form. Restart the client fully after saving — the 🔨 icon should show 4 tools.
 
 Then chat:
 > "Schedule a task to review PR #123 tomorrow at 9am."
-> -> Claude calls `task.create` -> returns job_id
+> -> Claude calls `task_create` -> returns job_id
 > "What's the status of that task?"
-> -> Claude calls `task.status`
+> -> Claude calls `task_status`
 
 ## Suggested Tech Stack
 

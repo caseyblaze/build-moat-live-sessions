@@ -89,7 +89,7 @@ def handle_cancel_task(db: Session, *, job_id: int) -> dict:
 
 TOOL_DEFINITIONS: list[Tool] = [
     Tool(
-        name="task.create",
+        name="task_create",
         description="Schedule a new task for future execution",
         inputSchema={
             "type": "object",
@@ -108,23 +108,23 @@ TOOL_DEFINITIONS: list[Tool] = [
         },
     ),
     Tool(
-        name="task.list",
+        name="task_list",
         description="List all scheduled tasks",
         inputSchema={"type": "object", "properties": {}},
     ),
     Tool(
-        name="task.status",
+        name="task_status",
         description="Get the status of a scheduled task by job_id",
         inputSchema={
             "type": "object",
             "properties": {
-                "job_id": {"type": "integer", "description": "The job ID returned by task.create"},
+                "job_id": {"type": "integer", "description": "The job ID returned by task_create"},
             },
             "required": ["job_id"],
         },
     ),
     Tool(
-        name="task.cancel",
+        name="task_cancel",
         description="Cancel a scheduled task that hasn't completed yet",
         inputSchema={
             "type": "object",
@@ -150,10 +150,10 @@ TOOL_DEFINITIONS: list[Tool] = [
 # Hints:
 # 1. Map tool name strings to their handler functions
 # 2. Keys should match the tool names from TOOL_DEFINITIONS above
-#    (e.g., "task.create")
+#    (e.g., "task_create")
 # 3. Values are the handler functions defined earlier in this file
 #    (e.g., handle_create_task)
-# 4. There are 4 tools: task.create, task.list, task.status, task.cancel
+# 4. There are 4 tools: task_create, task_list, task_status, task_cancel
 TOOL_REGISTRY: dict = {}
 
 
